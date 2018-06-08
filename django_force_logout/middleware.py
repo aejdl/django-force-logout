@@ -1,11 +1,12 @@
 import datetime
 
 from django.contrib import auth
+from django.utils.deprecation import MiddlewareMixin
 
 from . import app_settings
 from .utils import from_dotted_path
 
-class ForceLogoutMiddleware(object):
+class ForceLogoutMiddleware(MiddlewareMixin):
     SESSION_KEY = 'force-logout:last-login'
 
     def __init__(self, get_response=None):
@@ -14,27 +15,17 @@ class ForceLogoutMiddleware(object):
         if not callable(self.fn):
             self.fn = from_dotted_path(app_settings.CALLBACK)
 
-        def callback(sender, user=None, request=None, **kwargs):
-            if request:
-                request.session[self.SESSION_KEY] = datetime.datetime.utcnow()
-        auth.signals.user_logged_in.connect(callback, weak=False)
+        self.get_response = get_response
 
     def process_request(self, request):
         if not request.user.is_authenticated():
             return
 
         user_timestamp = self.fn(request.user)
-
         if user_timestamp is None:
             return
 
-        try:
-            timestamp = request.session[self.SESSION_KEY]
-        except KeyError:
-            # May not have logged in since we started populating this key.
-            return
-
-        if timestamp > user_timestamp:
+        if request.user.last_login > user_timestamp:
             return
 
         auth.logout(request)
