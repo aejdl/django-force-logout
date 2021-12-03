@@ -18,7 +18,7 @@ class ForceLogoutMiddleware(MiddlewareMixin):
         self.get_response = get_response
 
     def process_request(self, request):
-        if not request.user.is_authenticated():
+        if not request.user.is_authenticated:
             return
 
         user_timestamp = self.fn(request.user)
